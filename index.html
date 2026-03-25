@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radionica Pro v8.0 (Timer Manuale)</title>
+    <style>
+        :root {
+            --bg-color: #d4d0c8;
+            --win-border: #404040;
+            --panel-bg: #ece9d8;
+            --highlight: #000080;
+            --header-bg: #e0e0e0;
+            --active-header: #c0c0d0;
+            --crystal-header: #e6e6fa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            user-select: none;
+        }
+
+        .window {
+            width: 1100px;
+            height: 720px;
+            background-color: var(--bg-color);
+            border: 2px solid var(--win-border);
+            box-shadow: 0 0 25px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .title-bar {
+            background: linear-gradient(90deg, #004d40, #008080);
+            color: white;
+            padding: 6px 10px;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            padding: 10px;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        /* PANNELLI */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid white;
+            border-right-color: #808080;
+            border-bottom-color: #808080;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .fieldset {
+            border: 1px solid #a0a0a0;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        .fieldset legend { font-size: 0.8em; color: #444; font-weight: bold; }
+
+        /* LISTA ACCORDION */
+        .col-left { width: 30%; display: flex; flex-direction: column; }
+        .accordion-container { flex: 1; overflow-y: auto; border: 2px inset #ddd; background: white; }
+        
+        .accordion-btn {
+            background-color: var(--header-bg); color: #333; cursor: pointer; padding: 10px;
+            width: 100%; border: none; text-align: left; outline: none; font-weight: bold;
+            border-bottom: 1px solid #ccc; transition: 0.3s;
+        }
+        .accordion-btn:hover { background-color: #d0d0d0; }
+        .accordion-btn.active-header { background-color: var(--active-header); color: #000; }
+        .accordion-btn:after { content: '+'; float: right; font-weight: bold; }
+        .accordion-btn.active-header:after { content: "-"; }
+        .crystal-btn { background-color: var(--crystal-header); color: #4b0082; }
+
+        .accordion-content { display: none; background-color: white; border-bottom: 1px solid #ccc; }
+        .sub-item { padding: 8px 15px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        .sub-item:hover { background-color: #e8ebf5; }
+        .sub-item.selected { background-color: var(--highlight); color: white; }
+
+        /* CENTER */
+        .col-center { width: 40%; }
+        .info-screen { background-color: #ffffe0; border: 2px inset #ddd; padding: 15px; height: 55%; overflow-y: auto; line-height: 1.4; font-size: 0.95rem; }
+        .visualizer-container { background: black; border: 2px inset #555; height: 38%; margin-top: 10px; position: relative; }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* RIGHT */
+        .col-right { width: 30%; }
+        .timer-display { font-family: 'Courier New', monospace; font-size: 3rem; color: #d00; background: #222; text-align: center; border: 2px inset #555; padding: 10px 0; margin-bottom: 5px; }
+        
+        /* NUOVO STILE PER IL BOX TEMPO */
+        .time-input-box {
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            margin-bottom: 15px; background: #ddd; padding: 5px; border: 1px solid #999;
+        }
+        .time-input-box input { width: 60px; text-align: center; font-weight: bold; font-size: 1.1em; }
+
+        .wave-info { font-size: 0.8rem; color: #555; font-style: italic; margin-top: 5px; background: #fff; padding: 4px; border: 1px solid #ccc; }
+
+        .btn-group { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+        button { cursor: pointer; font-weight: bold; border: 1px outset #fff; padding: 12px; }
+        button:active { border-style: inset; transform: translateY(1px); }
+        .btn-start { background: #4caf50; color: white; }
+        .btn-pause { background: #ff9800; color: white; }
+        .btn-reset { background: #f44336; color: white; }
+
+        input[type="text"], input[type="number"], select { width: 100%; padding: 5px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div class="window">
+    <div class="title-bar">
+        <span>Radionica Pro v8.0 (Timer Manuale)</span>
+        <span>_ □ X</span>
+    </div>
+
+    <div class="main-content">
+        <!-- LEFT -->
+        <div class="panel col-left">
+            <div class="fieldset">
+                <legend style="color:red">1. Testimone (Fondamentale)</legend>
+                <input type="text" id="witness" placeholder="Nome, Data, Intento...">
+            </div>
+
+            <label style="font-weight:bold; font-size:0.9em; margin-bottom:5px;">2. Scegli Protocollo:</label>
+            <div class="accordion-container" id="accordionRoot"></div> 
+
+            <div style="margin-top:10px; background:#dcdcdc; border:1px solid #999; padding:10px;">
+                <legend style="font-size:0.8em; font-weight:bold;">Manuale Hz</legend>
+                <div style="display:flex; gap:5px; margin-top:5px;">
+                    <input type="number" id="manualFreq" placeholder="Hz">
+                    <button onclick="setManualFreq()" style="padding:5px 10px;">OK</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER -->
+        <div class="panel col-center">
+            <div class="info-screen" id="infoScreen">
+                <h3>Sistema Pronto</h3>
+                <p>Seleziona un trattamento dal menu a sinistra.</p>
+                <p><strong>Controllo Tempo:</strong> Ora puoi impostare la durata esatta nel box a destra (es. 2 minuti per la pulizia, 15 per il caricamento).</p>
+            </div>
+            <div class="visualizer-container">
+                <canvas id="scope"></canvas>
+                <div style="position:absolute; top:5px; left:5px; color:#0f0; font-size:0.7em;">MONITOR ENERGETICO</div>
+            </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="panel col-right">
+            
+            <!-- TIMER E INPUT MANUALE -->
+            <div class="timer-display" id="timer">30:00</div>
+            
+            <div class="time-input-box">
+                <label style="font-size:0.9em; font-weight:bold;">Imposta Minuti:</label>
+                <input type="number" id="userMinutes" placeholder="30" min="1" oninput="updateTimerFromInput()">
+            </div>
+            
+            <div class="fieldset">
+                <legend>Monitor Output</legend>
+                <div style="background:black; color:#0f0; font-family:'Courier New'; text-align:center; padding:5px; font-size:1.2em;" id="freqDisplay">--- Hz</div>
+            </div>
+
+            <div class="fieldset">
+                <legend>Configurazione Audio</legend>
+                
+                <label style="font-size:0.8em;">Volume (0 = Remoto):</label>
+                <input type="range" id="volSlider" min="0" max="100" value="50" style="width:100%">
+                
+                <label style="font-size:0.8em; display:block; margin-top:10px;">Tipo Onda:</label>
+                <select id="waveType" onchange="updateWaveInfo()">
+                    <option value="sine">Sinusoide (Delicata/Amore)</option>
+                    <option value="triangle">Triangolare (Ricarica/Soldi)</option>
+                    <option value="square">Quadra (Pulizia/Protezione)</option>
+                    <option value="sawtooth">Dente di Sega (Attivazione)</option>
+                </select>
+                <div class="wave-info" id="waveInfoText">Onda standard.</div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-start" onclick="startEngine()">AVVIA TRATTAMENTO</button>
+                <button class="btn-pause" onclick="pauseEngine()">PAUSA</button>
+                <button class="btn-reset" onclick="resetEngine()">STOP / RESET</button>
+            </div>
+        </div>
+    </div>
+    <div style="background:#d4d0c8; padding:3px; border-top:1px solid #999; font-size:0.8em;" id="statusBar">In attesa...</div>
+</div>
+
+<script>
+    // --- DATI ---
+    const categories = {
+        "PULIZIA & DETOX": [
+{ name: "Reset & Pulizia Iniziale (4096 Hz)", freq: 4096, desc: "Frequenza 'Angelica'. Pulisce le memorie del filo e di chi lo ha toccato prima. [Onda: QUADRA | Tempo: 2 min]" },
+            { name: "174 Hz - Fondamenta", freq: 174, desc: "Anestetico naturale. Rimuove dolore e stress." },
+            { name: "396 Hz - Via Blocchi", freq: 396, desc: "Libera da paure e sensi di colpa." },
+            { name: "741 Hz - Detox Aurico", freq: 741, desc: "Pulisce dalle tossine e negatività." }
+        ],
+        "CRISTALLOTERAPIA & PIETRE": [
+            { name: "4096 Hz - Crystal Tuner", freq: 4096, desc: "Frequenza 'Angelica'. Simula il colpo di un diapason sul quarzo. Pulisce istantaneamente le memorie negative della pietra. ⚠️ Alta frequenza: tieni il volume basso!" },
+            { name: "126.22 Hz - Ricarica Solare", freq: 126.22, desc: "Frequenza del Sole. Conferisce energia maschile, attiva, calda. Ottima per Quarzo Citrino, Pirite, Ambra." },
+            { name: "210.42 Hz - Ricarica Lunare", freq: 210.42, desc: "Frequenza della Luna Sinodica. Energia femminile, intuitiva. Perfetta per Pietra di Luna, Selenite, Ametista." },
+            { name: "2675 Hz - Risonanza Quarzo", freq: 2675, desc: "Frequenza di risonanza del cristallo di rocca. Amplifica la programmazione e l'intento inserito nel cristallo." },
+            { name: "7.83 Hz - Grounding Pietre", freq: 7.83, desc: "Schumann Resonance. Riporta le pietre (es. Tormalina Nera, Ematite) alla vibrazione naturale della Terra." }
+        ],
+        "RIEQUILIBRIO 7 CHAKRA": [
+{ name: ">>> RIEQUILIBRIO TOTALE (Sequenza 7 Chakra)", freq: "SEQ", desc: "AUTOMATICO. Esegue una scansione completa dal 1° al 7° Chakra. Imposta i minuti PER OGNI chakra nel box a destra. [Onda: SINUSOIDE consigliata]" },
+            { name: "1. Radice (396 Hz)", freq: 396, desc: "Sicurezza, stabilità, sopravvivenza." },
+            { name: "2. Sacrale (417 Hz)", freq: 417, desc: "Cambiamento, creatività, emozioni." },
+            { name: "3. Plesso (528 Hz)", freq: 528, desc: "Trasformazione, potere personale." },
+            { name: "4. Cuore (639 Hz)", freq: 639, desc: "Connessione, relazioni, amore." },
+            { name: "5. Gola (741 Hz)", freq: 741, desc: "Espressione, verità, intuizione." },
+            { name: "6. Terzo Occhio (852 Hz)", freq: 852, desc: "Risveglio spirituale, chiarezza." },
+            { name: "7. Corona (963 Hz)", freq: 963, desc: "Connessione divina, Luce." }
+        ],
+        "RICARICA & GUARIGIONE": [
+            { name: "111 Hz - Rigenerazione", freq: 111, desc: "Rigenerazione cellulare profonda." },
+            { name: "432 Hz - Armonia", freq: 432, desc: "Frequenza naturale dell'Universo." },
+            { name: "528 Hz - DNA Repair", freq: 528, desc: "Riparazione DNA e aumento energia vitale." }
+        ],
+        "CEREBRALI & MENTALI": [
+            { name: "Alpha (10 Hz)", freq: 10, desc: "Relax leggero, apprendimento." },
+            { name: "Theta (5 Hz)", freq: 5, desc: "Meditazione profonda, sogni." },
+            { name: "Gamma (40 Hz)", freq: 40, desc: "Massimo focus e concentrazione." },
+            { name: "Schumann (7.83 Hz)", freq: 7.83, desc: "Grounding (Risonanza Terra)." }
+        ],
+
+"BRACCIALI 7 NODI (Attivazione)": [
+            { name: "Reset & Pulizia Iniziale (4096 Hz)", freq: 4096, desc: "Frequenza 'Angelica'. Pulisce le memorie del filo e di chi lo ha toccato prima. [Onda: QUADRA | Tempo: 2 min]" },
+            
+            { name: "GIALLO - Denaro (183.58 Hz)", freq: 183.58, desc: "Giove. Per attrarre abbondanza, fortuna e ottimismo finanziario. [Onda: TRIANGOLARE | Tempo: 15 min]" },
+            
+            { name: "ROSSO - Malocchio (396 Hz)", freq: 396, desc: "Chakra Radice. Scudo attivo contro invidia e sguardi negativi. [Onda: QUADRA | Tempo: 15 min]" },
+            
+            { name: "BLU - Stabilità (432 Hz)", freq: 432, desc: "Armonia Aurea. Calma l'ansia, protegge dai danni emotivi, dona fiducia. [Onda: SINUSOIDE | Tempo: 15 min]" },
+            
+            { name: "VIOLA - Meditazione (852 Hz)", freq: 852, desc: "Terzo Occhio. Per chi cerca spiritualità, riflessione e trasformazione. [Onda: SINUSOIDE | Tempo: 15 min]" },
+            
+            { name: "NERO - Potere (147.85 Hz)", freq: 147.85, desc: "Saturno. Forza, eleganza, confini solidi, respingimento negatività. [Onda: QUADRA | Tempo: 15 min]" },
+            
+            { name: "ROSA - Amore (639 Hz)", freq: 639, desc: "Chakra Cuore. Per relazioni, delicatezza, indipendenza e affetto sincero. [Onda: SINUSOIDE | Tempo: 15 min]" },
+            
+            { name: "VERDE - Salute (528 Hz)", freq: 528, desc: "Miracle Tone. Speranza, benessere fisico e rigenerazione vitale. [Onda: TRIANGOLARE | Tempo: 15 min]" },
+            
+            { name: "BIANCO - Fertilità (210.42 Hz)", freq: 210.42, desc: "Luna Sinodica. Purezza, nuovi inizi, cicli femminili e fedeltà. [Onda: SINUSOIDE | Tempo: 15 min]" },
+            
+            { name: "Sigillo del Nodo (963 Hz)", freq: 963, desc: "Frequenza della Luce. Sigilla l'informazione all'interno dei 7 nodi. [Onda: SINUSOIDE | Tempo: 3 min]" }
+        ],
+
+        "TALISMANI & AMULETI GENERICI": [
+            { name: "Pulizia Metalli/Pietre (741 Hz)", freq: 741, desc: "Detox. Rimuove radiazioni e energie stagnanti da metalli o pietre dure. [Onda: QUADRA | Tempo: 5 min]" },
+            
+            { name: "Talismano Amore (Venere - 221.23 Hz)", freq: 221.23, desc: "Per ciondoli/anelli destinati all'attrazione, bellezza e armonia. [Onda: SINUSOIDE | Tempo: 15 min]" },
+            
+            { name: "Talismano Affari (Mercurio - 141.27 Hz)", freq: 141.27, desc: "Per oggetti da ufficio. Favorisce commercio e rapidità mentale. [Onda: DENTE DI SEGA | Tempo: 10 min]" },
+            
+            { name: "Talismano Coraggio (Marte - 144.72 Hz)", freq: 144.72, desc: "Per oggetti competitivi (sport) o per superare la timidezza. [Onda: DENTE DI SEGA | Tempo: 10 min]" },
+            
+            { name: "Talismano Fortuna (OM - 136.10 Hz)", freq: 136.10, desc: "Anno Terrestre (OM). Frequenza 'jolly' per equilibrio e buona sorte. [Onda: SINUSOIDE | Tempo: 20 min]" },
+            
+            { name: "Pentacoli Protezione (Sole - 126.22 Hz)", freq: 126.22, desc: "Crea un'aura luminosa attorno all'oggetto che brucia le negatività. [Onda: TRIANGOLARE | Tempo: 15 min]" },
+            
+            { name: "Attivazione Magica (111 Hz)", freq: 111, desc: "Per 'svegliare' amuleti antichi o rituali dormienti con una scossa. [Onda: DENTE DI SEGA | Tempo: 5 min]" }
+        ],
+"SONNO, SOGNI & ASTRALE": [
+            { name: "Delta - Sonno Profondo (2.5 Hz)", freq: 2.5, desc: "Onde Delta. Per insonnia grave, rigenerazione fisica profonda e assenza di sogni. [Onda: SINUSOIDE | Tempo: 30 min]" },
+            
+            { name: "Theta - Sogni Lucidi (4.5 Hz)", freq: 4.5, desc: "Stato di trance. Per indurre sogni lucidi o ipnosi profonda. [Onda: SINUSOIDE | Tempo: 20 min]" },
+            
+            { name: "Epsilon - Viaggio Astrale (0.5 Hz)", freq: 0.5, desc: "Stato 'Sospeso'. Usato dai monaci per l'estasi e l'esperienza fuori dal corpo (OOBE). [Onda: SINUSOIDE | Tempo: 30 min]" },
+            
+            { name: "Solfeggio del Sonno (528 Hz + Delta)", freq: 528, desc: "Nota: Usa 528 Hz con onda Sinusoide a volume basso per rilassare il cuore prima di dormire. [Onda: SINUSOIDE | Tempo: 15 min]" }
+        ],
+"RIFE & BENESSERE FISICO": [
+            { name: "Rife Universale (10000 Hz)", freq: 10000, desc: "La frequenza 'Master' di Rife. Usata per il benessere generale e per energizzare tutto il sistema. [Onda: QUADRA | Tempo: 10 min]" },
+            
+            { name: "Sollievo Dolore (111 Hz)", freq: 111, desc: "Stimola la produzione di beta-endorfine. Ottimo per dolori fisici o mal di testa. [Onda: SINUSOIDE | Tempo: 15 min]" },
+            
+            { name: "Sistema Immunitario (727 Hz)", freq: 727, desc: "Una delle frequenze Rife più usate per supportare le difese naturali. [Onda: QUADRA | Tempo: 10 min]" },
+            
+            { name: "Vitalità Generale (20 Hz)", freq: 20, desc: "Frequenza base per eliminare la stanchezza cronica e dare energia fisica. [Onda: DENTE DI SEGA | Tempo: 10 min]" }
+        ],
+"AMULETI: PROTEZIONE & DIFESA": [
+            { name: "Scudo Attivo (Marte - 144.72 Hz)", freq: 144.72, desc: "Difesa aggressiva. Rimanda il male al mittente. Per chi subisce attacchi diretti, stalking o nemici dichiarati. [Giorno: MARTEDÌ | Onda: DENTE DI SEGA | Tempo: 15 min]" },
+            
+            { name: "Barriera Invalicabile (Saturno - 147.85 Hz)", freq: 147.85, desc: "Difesa passiva. Crea un muro invisibile. Rende 'invisibili' ai nemici. Ottimo per proteggere la casa o la proprietà. [Giorno: SABATO | Onda: QUADRA | Tempo: 20 min]" },
+            
+            { name: "Aura Radiante (Sole - 126.22 Hz)", freq: 126.22, desc: "Brucia le negatività con la luce. Nessuna ombra può avvicinarsi. Protezione generale contro parassiti astrali. [Giorno: DOMENICA | Onda: TRIANGOLARE | Tempo: 15 min]" }
+        ],
+
+        "AMULETI: DENARO & LAVORO": [
+            { name: "Fortuna & Ricchezza (Giove - 183.58 Hz)", freq: 183.58, desc: "Per attrarre soldi in generale, vincite, eredità o 'colpi di fortuna'. Espande le entrate. [Giorno: GIOVEDÌ | Onda: TRIANGOLARE | Tempo: 15 min]" },
+            
+            { name: "Commercio & Clienti (Mercurio - 141.27 Hz)", freq: 141.27, desc: "Specifico per negozianti, venditori e liberi professionisti. Attira clienti, sblocca trattative e contratti. [Giorno: MERCOLEDÌ | Onda: DENTE DI SEGA | Tempo: 10 min]" },
+            
+            { name: "Risparmio & Investimenti (Saturno - 147.85 Hz)", freq: 147.85, desc: "Per consolidare il patrimonio, investimenti immobiliari o per chi spende troppo e vuole stabilità. [Giorno: SABATO | Onda: QUADRA | Tempo: 20 min]" }
+        ],
+
+        "AMULETI: AMORE & RELAZIONI": [
+            { name: "Attrazione & Bellezza (Venere - 221.23 Hz)", freq: 221.23, desc: "Per sedurre, farsi notare, aumentare il fascino fisico e trovare nuovi partner. [Giorno: VENERDÌ | Onda: SINUSOIDE | Tempo: 15 min]" },
+            
+            { name: "Famiglia & Maternità (Luna - 210.42 Hz)", freq: 210.42, desc: "Per proteggere la gravidanza, i bambini, la fertilità e l'armonia domestica. [Giorno: LUNEDÌ | Onda: SINUSOIDE | Tempo: 20 min]" },
+            
+            { name: "Armonia di Coppia (Sole - 126.22 Hz)", freq: 126.22, desc: "Energia Maschile/Paterna. Per risolvere conflitti col marito/padre o portare chiarezza e calore in casa. [Giorno: DOMENICA | Onda: SINUSOIDE | Tempo: 15 min]" }
+        ],
+
+        "AMULETI: POTERE & SUCCESSO": [
+            { name: "Carisma & Leadership (Sole - 126.22 Hz)", freq: 126.22, desc: "Per essere al centro dell'attenzione, attori, leader, politici. Aumenta l'autostima. [Giorno: DOMENICA | Onda: TRIANGOLARE | Tempo: 15 min]" },
+            
+            { name: "Vittoria & Competizione (Marte - 144.72 Hz)", freq: 144.72, desc: "Per vincere gare sportive, cause legali o superare esami difficili con grinta. [Giorno: MARTEDÌ | Onda: DENTE DI SEGA | Tempo: 10 min]" },
+            
+            { name: "Cambio Vita Radicale (Urano - 207.36 Hz)", freq: 207.36, desc: "Per chi vuole rivoluzionare tutto, cambiare città, lavoro o vita all'improvviso. [Giorno: QUALSIASI | Onda: DENTE DI SEGA | Tempo: 10 min]" },
+            
+            { name: "Potere Personale (Plutone - 140.25 Hz)", freq: 140.25, desc: "Per influenzare gli altri, carisma magnetico e occulto. Rinascita dalle ceneri. [Giorno: QUALSIASI | Onda: QUADRA | Tempo: 15 min]" }
+        ],
+"PIANETI COMPLETI (Astrologia & Archetipi)": [
+ { name: "Reset & Pulizia Iniziale (4096 Hz)", freq: 4096, desc: "Frequenza 'Angelica'. Pulisce le memorie del filo e di chi lo ha toccato prima. [Onda: QUADRA | Tempo: 2 min]" },
+            { name: "SOLE (126.22 Hz)", freq: 126.22, desc: "L'Io, la Vitalità, il Padre. Dona carisma, energia fisica, successo e illumina le zone oscure. [Giorno: DOMENICA | Onda: TRIANGOLARE | Tempo: 15 min]" },
+            
+            { name: "LUNA (210.42 Hz)", freq: 210.42, desc: "L'Inconscio, la Madre, le Emozioni. Per la fertilità, l'intuizione, i sogni e la sensibilità femminile. [Giorno: LUNEDÌ | Onda: SINUSOIDE | Tempo: 20 min]" },
+            
+            { name: "MERCURIO (141.27 Hz)", freq: 141.27, desc: "L'Intelletto. Per la comunicazione, lo studio, il commercio, la scrittura e la rapidità mentale. [Giorno: MERCOLEDÌ | Onda: DENTE DI SEGA | Tempo: 10 min]" },
+            
+            { name: "VENERE (221.23 Hz)", freq: 221.23, desc: "L'Amore. Per l'armonia, la bellezza estetica, l'attrazione, l'arte e le relazioni affettive. [Giorno: VENERDÌ | Onda: SINUSOIDE | Tempo: 15 min]" },
+            
+            { name: "MARTE (144.72 Hz)", freq: 144.72, desc: "L'Azione. Per il coraggio, la forza di volontà, la libido, lo sport e vincere le competizioni. [Giorno: MARTEDÌ | Onda: DENTE DI SEGA | Tempo: 10 min]" },
+            
+            { name: "GIOVE (183.58 Hz)", freq: 183.58, desc: "La Fortuna. Per l'espansione, la ricchezza, l'ottimismo, la crescita spirituale e la giustizia. [Giorno: GIOVEDÌ | Onda: TRIANGOLARE | Tempo: 15 min]" },
+            
+            { name: "SATURNO (147.85 Hz)", freq: 147.85, desc: "La Struttura. Per la disciplina, il karma, la concentrazione, i confini e la protezione solida. [Giorno: SABATO | Onda: QUADRA | Tempo: 20 min]" },
+            
+            { name: "URANO (207.36 Hz)", freq: 207.36, desc: "Il Rivoluzionario. Per cambiamenti improvvisi, libertà, lampi di genio e rottura col passato. [Giorno: UNIVERSALE | Onda: DENTE DI SEGA | Tempo: 10 min]" },
+            
+            { name: "NETTUNO (211.44 Hz)", freq: 211.44, desc: "Il Mistico. Per l'immaginazione, la medianità, la creatività artistica e la connessione spirituale. [Giorno: UNIVERSALE | Onda: SINUSOIDE | Tempo: 20 min]" },
+            
+            { name: "PLUTONE (140.25 Hz)", freq: 140.25, desc: "Il Trasformatore. Per la rinascita profonda, gestire i lutti, il potere occulto e la rigenerazione. [Giorno: UNIVERSALE | Onda: QUADRA | Tempo: 15 min]" },
+            
+            { name: "TERRA / OM (136.10 Hz)", freq: 136.10, desc: "Anno Terrestre. La vibrazione OM originale. Per il radicamento, la centratura e l'equilibrio dell'anima. [Giorno: TUTTI | Onda: SINUSOIDE | Tempo: 30 min]" },
+            
+            { name: "CHIRONE (172.86 Hz)", freq: 172.86, desc: "Il Guaritore Ferito. Per guarire traumi antichi o ferite emotive che non si riescono a superare. [Giorno: TUTTI | Onda: SINUSOIDE | Tempo: 20 min]" }
+        ]
+
+    };
+
+    // --- VARIABLES ---
+    let audioCtx, oscillator, gainNode, analyser;
+    let isRunning = false;
+    let currentFreq = 0;
+    let timerInt = null;
+    let timeLeft = 1800; // default 30 min
+// --- NUOVE VARIABILI PER SEQUENZA CHAKRA ---
+    let isSequenceMode = false;
+    let sequenceStep = 0; 
+    let sequenceDuration = 180; 
+    const chakraSteps = [396, 417, 528, 639, 741, 852, 963];
+    const chakraNames = ["1. Radice", "2. Sacrale", "3. Plesso", "4. Cuore", "5. Gola", "6. Terzo Occhio", "7. Corona"];
+
+    // --- BUILD UI ---
+    const accRoot = document.getElementById('accordionRoot');
+    for (const [catName, items] of Object.entries(categories)) {
+        const btn = document.createElement('button');
+        btn.className = 'accordion-btn';
+        if(catName.includes("BRACCIALI") || catName.includes("TALISMANI")) btn.classList.add('crystal-btn');
+        btn.textContent = catName;
+        const panel = document.createElement('div');
+        panel.className = 'accordion-content';
+        
+        btn.onclick = function() {
+            this.classList.toggle("active-header");
+            panel.style.display = (panel.style.display === "block") ? "none" : "block";
+        };
+
+        items.forEach(item => {
+            const sub = document.createElement('div');
+            sub.className = 'sub-item';
+            sub.textContent = item.name;
+            sub.onclick = () => selectItem(item, sub);
+            panel.appendChild(sub);
+        });
+        accRoot.appendChild(btn);
+        accRoot.appendChild(panel);
+    }
+
+    // --- LOGIC ---
+    function selectItem(item, el) {
+        document.querySelectorAll('.sub-item').forEach(e => e.classList.remove('selected'));
+        el.classList.add('selected');
+        
+        currentFreq = item.freq;
+        // Controlla se è la modalità sequenza
+        isSequenceMode = (item.freq === "SEQ");
+        
+        let freqText = isSequenceMode ? "AUTO: Sequenza 7 Chakra" : `${item.freq} Hz`;
+        
+        document.getElementById('infoScreen').innerHTML = `<h3>${item.name}</h3><p>${item.desc}</p><div style='margin-top:10px; padding:5px; background:#ddd'>Freq: ${freqText}</div>`;
+        
+        // Imposta timer visivo
+        let min = parseInt(document.getElementById('userMinutes').value);
+        if(isNaN(min) || min <=0) min = 3; 
+        document.getElementById('timer').textContent = `${min.toString().padStart(2,'0')}:00`;
+        
+        if (isRunning) {
+            // Se cambio mentre va, resetta per sicurezza
+            resetEngine(); 
+        }
+    }
+
+    function setManualFreq() {
+        const val = parseFloat(document.getElementById('manualFreq').value);
+        if (val > 0) {
+            currentFreq = val;
+            document.querySelectorAll('.sub-item').forEach(e => e.classList.remove('selected'));
+            document.getElementById('infoScreen').innerHTML = `<h3>Manuale</h3><p>Frequenza: ${val} Hz</p>`;
+            if (isRunning) updateAudioParams();
+        }
+    }
+
+    function updateWaveInfo() {
+        const type = document.getElementById('waveType').value;
+        const txt = document.getElementById('waveInfoText');
+        const map = {
+            'sine': 'Sinusoide: Onda Sinusoide. Morbida. Consigliata per Meditazione e Pulizia Cristalli.',
+            'triangle': 'Triangolare: Onda Triangolare. Armonica. Buona per Ricarica Solare/Lunare.',
+            'square': 'Quadra: Forte. Usa per rompere legami o blocchi a distanza.',
+            'sawtooth': 'Dente di Sega: Penetrante. Per attivazioni rapide e magiche.'
+        };
+        txt.innerText = map[type];
+        if (isRunning) updateAudioParams();
+    }
+
+    // --- NUOVA LOGICA TIMER MANUALE ---
+    function updateTimerFromInput() {
+        if (isRunning) return; // Non cambiare mentre gira
+        let min = parseInt(document.getElementById('userMinutes').value);
+        if (isNaN(min) || min <= 0) min = 30; // Default fallback
+        timeLeft = min * 60;
+        updateTimerDisplay();
+    }
+
+    // --- AUDIO ENGINE ---
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function startEngine() {
+        if (!document.getElementById('witness').value) { alert("Inserisci il Testimone!"); return; }
+        if (currentFreq === 0 && !isSequenceMode) { alert("Seleziona frequenza."); return; }
+
+        initAudio();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        if (!isRunning) {
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            analyser = audioCtx.createAnalyser();
+
+            oscillator.connect(analyser);
+            analyser.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            const vol = document.getElementById('volSlider').value / 100;
+            gainNode.gain.setValueAtTime(vol, audioCtx.currentTime);
+
+            // Legge i minuti inseriti dall'utente
+            let userMin = parseInt(document.getElementById('userMinutes').value);
+            if(isNaN(userMin) || userMin <= 0) userMin = 3; // Default 3 min
+
+            if (isSequenceMode) {
+                // LOGICA SEQUENZA
+                sequenceStep = 0;
+                sequenceDuration = userMin * 60; // Durata per OGNI chakra
+                timeLeft = sequenceDuration;
+                
+                // Imposta il primo chakra
+                oscillator.frequency.setValueAtTime(chakraSteps[0], audioCtx.currentTime);
+                document.getElementById('statusBar').textContent = `SEQUENZA AUTO: ${chakraNames[0]}...`;
+                document.getElementById('statusBar').style.background = "#FFC0CB"; // Rosa
+                
+            } else {
+                // LOGICA NORMALE
+                timeLeft = userMin * 60;
+                updateAudioParams();
+                document.getElementById('statusBar').textContent = "TRATTAMENTO ATTIVO";
+                document.getElementById('statusBar').style.background = "#90EE90";
+            }
+
+            oscillator.start();
+            isRunning = true;
+            
+            startTimer();
+            drawScope();
+        }
+    }
+    function pauseEngine() {
+        if (isRunning && oscillator) {
+            oscillator.stop(); oscillator.disconnect();
+            isRunning = false; clearInterval(timerInt);
+            document.getElementById('statusBar').textContent = "PAUSA (Tempo fermo)";
+            document.getElementById('statusBar').style.background = "#FFD700";
+        }
+    }
+
+    function resetEngine() {
+        pauseEngine();
+        
+        // RESETTA IL TEMPO in base all'input utente o a 30
+        let userMin = parseInt(document.getElementById('userMinutes').value);
+        if (!isNaN(userMin) && userMin > 0) {
+            timeLeft = userMin * 60;
+        } else {
+            timeLeft = 1800;
+        }
+        
+        updateTimerDisplay();
+        document.getElementById('freqDisplay').innerText = "--- Hz";
+        document.getElementById('statusBar').textContent = "STOP / RESET";
+        document.getElementById('statusBar').style.background = "#d4d0c8";
+    }
+
+    function updateAudioParams() {
+        // Aggiungi && !isSequenceMode per non disturbare la sequenza
+        if (oscillator && !isSequenceMode) {
+            oscillator.frequency.linearRampToValueAtTime(currentFreq, audioCtx.currentTime + 0.1);
+            oscillator.type = document.getElementById('waveType').value;
+        }
+    }
+
+    document.getElementById('volSlider').addEventListener('input', function() {
+        if (gainNode) gainNode.gain.setValueAtTime(this.value / 100, audioCtx.currentTime);
+    });
+
+    function updateTimerDisplay() {
+        let m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+        let s = (timeLeft % 60).toString().padStart(2, '0');
+        document.getElementById('timer').textContent = `${m}:${s}`;
+    }
+
+   function startTimer() {
+        clearInterval(timerInt);
+        timerInt = setInterval(() => {
+            if (timeLeft > 0) {
+                timeLeft--; 
+                updateTimerDisplay();
+                
+                // Display Freq con effetto jitter
+                let baseF = isSequenceMode ? chakraSteps[sequenceStep] : currentFreq;
+                let jitter = (Math.random() * 0.1) - 0.05;
+                document.getElementById('freqDisplay').innerText = (baseF + jitter).toFixed(2) + " Hz";
+
+            } else {
+                // IL TEMPO È SCADUTO
+                if (isSequenceMode) {
+                    // Se siamo in sequenza, controlla se ci sono altri chakra
+                    if (sequenceStep < 6) {
+                        sequenceStep++; // Passa al prossimo
+                        timeLeft = sequenceDuration; // Resetta il tempo
+                        
+                        // Cambia la frequenza audio
+                        oscillator.frequency.linearRampToValueAtTime(chakraSteps[sequenceStep], audioCtx.currentTime + 0.1);
+                        
+                        // Aggiorna la scritta in basso
+                        document.getElementById('statusBar').textContent = `SEQUENZA AUTO: ${chakraNames[sequenceStep]}...`;
+                    } else {
+                        // Finiti tutti i 7 chakra
+                        resetEngine();
+                        alert("Riequilibrio Totale 7 Chakra Completato!");
+                    }
+                } else {
+                    // Modalità normale finita
+                    resetEngine();
+                    alert("Trattamento Completato.");
+                }
+            }
+        }, 1000);
+    }
+
+    function drawScope() {
+        if (!isRunning) return;
+        const canvas = document.getElementById('scope');
+        const ctx = canvas.getContext('2d');
+        const bufferLen = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLen);
+        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.height = canvas.parentElement.offsetHeight;
+
+        function loop() {
+            if (!isRunning) return;
+            requestAnimationFrame(loop);
+            analyser.getByteTimeDomainData(dataArray);
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.lineWidth = 2; ctx.strokeStyle = '#0f0'; ctx.beginPath();
+            let slice = canvas.width * 1.0 / bufferLen;
+            let x = 0;
+            for(let i=0; i<bufferLen; i++){
+                let v = dataArray[i] / 128.0; let y = v * canvas.height/2;
+                if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); x+=slice;
+            }
+            ctx.lineTo(canvas.width, canvas.height/2); ctx.stroke();
+        }
+        loop();
+    }
+</script>
+</body>
+</html>
